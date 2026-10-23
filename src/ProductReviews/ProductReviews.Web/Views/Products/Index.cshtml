@@ -1,0 +1,32 @@
+﻿@model List<ProductReviews.Web.Models.Product>
+@{
+    ViewData["Title"] = "Products";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Products</h1>
+    <a asp-action="Create" class="btn btn-primary">Add product</a>
+</div>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">No products yet. Add the first one.</p>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-3 g-3">
+        @foreach (var p in Model)
+        {
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@p.Name</h5>
+                        <p class="card-text text-muted">@p.Description</p>
+                        <span class="badge bg-secondary">@p.Reviews.Count reviews</span>
+                        <a asp-action="Details" asp-route-id="@p.Id" class="stretched-link"></a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
