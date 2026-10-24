@@ -27,8 +27,15 @@
                         <strong>@r.Author</strong>
                         <span class="text-warning">@(new string('★', r.Rating))@(new string('☆', 5 - r.Rating))</span>
                     </div>
-                    <p class="mb-1">@r.Comment</p>
-                    <small class="text-muted">@r.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
+                    <p class="mb-2">@r.Comment</p>
+
+                    @if (!string.IsNullOrEmpty(r.ImageUrl))
+                    {
+                        <img src="@r.ImageUrl" alt="Review image by @r.Author"
+                             class="img-fluid rounded mb-2" style="max-height:240px" loading="lazy" />
+                    }
+
+                    <small class="text-muted d-block">@r.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
                 </div>
             </div>
         }
@@ -42,7 +49,7 @@
             <div class="alert alert-danger">@error</div>
         }
 
-        <form asp-controller="Reviews" asp-action="Create" method="post">
+        <form asp-controller="Reviews" asp-action="Create" method="post" enctype="multipart/form-data">
             <input type="hidden" name="ProductId" value="@Model.Id" />
 
             <div class="mb-3">
@@ -63,6 +70,11 @@
             <div class="mb-3">
                 <label class="form-label" for="Comment">Comment</label>
                 <textarea class="form-control" id="Comment" name="Comment" rows="3" maxlength="2000" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="image">Image (optional, max 5 MB)</label>
+                <input class="form-control" type="file" id="image" name="image" accept=".jpg,.jpeg,.png,.webp" />
             </div>
 
             <button type="submit" class="btn btn-primary">Submit review</button>

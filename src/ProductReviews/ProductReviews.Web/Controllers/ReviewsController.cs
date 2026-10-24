@@ -2,32 +2,60 @@
 using Microsoft.EntityFrameworkCore;
 using ProductReviews.Web.Data;
 using ProductReviews.Web.Models;
+using ProductReviews.Web.Services;
 
 namespace ProductReviews.Web.Controllers;
 
-public class ReviewsController : Controller
+public class ReviewsController(AppDbContext db, IImageStorageService images) : Controller
 {
-    private readonly AppDbContext _db;
+    private const long MaxImageBytes = 5 * 1024 * 1024; // 5 MB
 
-    public ReviewsController(AppDbContext db) => _db = db;
+    private static readonly Dictionary<string, string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".jpg"] = "image/jpeg",
+        [".jpeg"] = "image/jpeg",
+        [".png"] = "image/png",
+        [".webp"] = "image/webp"
+    };
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("ProductId,Author,Rating,Comment")] Review review)
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<IActionResult> Create(
+        [Bind("ProductId,Author,Rating,Comment")] Review review,
+        IFormFile? image,
+        CancellationToken ct)
     {
-        var productExists = await _db.Products.AnyAsync(p => p.Id == review.ProductId);
+        var productExists = await db.Products.AnyAsync(p => p.Id == review.ProductId, ct);
         if (!productExists) return NotFound();
 
         if (!ModelState.IsValid)
+            return Fail(review.ProductId, "Please fill in your name, a rating (1-5) and a comment.");
+
+        if (image is { Length: > 0 })
         {
-            TempData["Error"] = "Please fill in your name, a rating (1-5) and a comment.";
-            return RedirectToAction("Details", "Products", new { id = review.ProductId });
+            var extension = Path.GetExtension(image.FileName);
+
+            if (!AllowedImageTypes.TryGetValue(extension, out var contentType))
+                return Fail(review.ProductId, "Only JPG, PNG or WEBP images are allowed.");
+
+            if (image.Length > MaxImageBytes)
+                return Fail(review.ProductId, "Image is too large (max 5 MB).");
+
+            await using var stream = image.OpenReadStream();
+            review.ImageUrl = await images.UploadAsync(stream, extension.ToLowerInvariant(), contentType, ct);
         }
 
         review.CreatedAt = DateTime.UtcNow;
-        _db.Reviews.Add(review);
-        await _db.SaveChangesAsync();
+        db.Reviews.Add(review);
+        await db.SaveChangesAsync(ct);
 
         return RedirectToAction("Details", "Products", new { id = review.ProductId });
+    }
+
+    private IActionResult Fail(int productId, string message)
+    {
+        TempData["Error"] = message;
+        return RedirectToAction("Details", "Products", new { id = productId });
     }
 }
