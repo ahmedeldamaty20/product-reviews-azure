@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Azure;
 using ProductReviews.Web.Data;
@@ -18,12 +19,29 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     );
 });
 
-// Add Azure Blob Storage client to the DI container
-// The connection string is retrieved from the configuration (appsettings.json or environment variables)
+// Blob Storage without connection string, using DefaultAzureCredential for authentication
+// on local development, it will use your Visual Studio account.
+// on Azure, it will automatically use the Managed Identity of the App Service.
+var blobEndpoint = builder.Configuration["Storage:BlobEndpoint"];
+if (string.IsNullOrWhiteSpace(blobEndpoint))
+{
+    throw new InvalidOperationException(
+        "Missing configuration 'Storage:BlobEndpoint' " +
+        "(e.g. https://<account>.blob.core.windows.net).");
+}
+
 builder.Services.AddAzureClients(clients =>
 {
-    clients.AddBlobServiceClient(builder.Configuration.GetConnectionString("BlobStorage"));
+    clients.AddBlobServiceClient(new Uri(blobEndpoint));
+    clients.UseCredential(new DefaultAzureCredential());
 });
+
+//// Add Azure Blob Storage client to the DI container
+//// The connection string is retrieved from the configuration (appsettings.json or environment variables)
+//builder.Services.AddAzureClients(clients =>
+//{
+//    clients.AddBlobServiceClient(builder.Configuration.GetConnectionString("BlobStorage"));
+//});
 
 builder.Services.AddScoped<IImageStorageService, BlobImageStorageService>();
 
